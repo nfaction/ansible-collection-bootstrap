@@ -1,0 +1,121 @@
+---
+- name: gather os specific variables
+  include_vars: '{{ item }}'
+  with_first_found:
+    - "{{ ansible_distribution }}-{{ ansible_distribution_major_version }}.yml"
+    - "{{ ansible_distribution }}.yml"
+    - "{{ ansible_os_family }}.yml"
+
+- name: perform an apt update
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when:
+    - ansible_os_family == 'Debian'
+
+- name: install GUI for CentOS
+  shell: yum install @GNOME Desktop -y
+  changed_when: false
+  when:
+    - ansible_os_family == 'RedHat'
+    - install_gui_prereqs | bool
+
+- name: install pre-reqs
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items: "{{ gui_prereqs }}"
+  become: true
+  when: install_gui_prereqs | bool
+
+- name: install vnc
+  package:
+    name: '{{ item }}'
+    state: present
+  with_items: "{{ vnc_packages }}"
+  become: true
+
+- name: create autostart dir
+  file:
+    path: '{{ user_account_home }}/.config/autostart'
+    state: directory
+    owner: '{{ user_account_owner }}'
+    group: '{{ user_account_group }}'
+
+- name: create autostart file
+  copy:
+    content: "[Desktop Entry]\nEncoding=UTF-8\nType=Application\nName=X11VNC\nExec=x0vncserver -PasswordFile {{ user_account_home }}/.vnc/passwd -display :{{ vnc_display | default(0) }}\nStartupNotify=false\nTerminal=false\nHidden=false"
+    dest: '{{ user_account_home }}/.config/autostart/tigervnc.desktop'
+    owner: '{{ user_account_owner }}'
+    group: '{{ user_account_group }}'
+  when: ansible_service_mgr != "systemd"
+
+- name: create .vnc dir
+  file:
+    path: '{{ user_account_home }}/.vnc'
+    state: directory
+    owner: '{{ user_account_owner }}'
+    group: '{{ user_account_group }}'
+  notify: "start/restart vnc service"
+  tags:
+    - vncpasswd
+
+- name: set vnc password
+  shell: "/usr/bin/printf '%s\n%s\nn\n' '{{ vnc_password }}' '{{ vnc_password }}' | vncpasswd {{ user_account_home }}/.vnc/passwd"
+  args:
+    chdir: '{{ user_account_home }}'
+    creates: '{{ user_account_home }}/.vnc/passwd'
+  no_log: true
+  notify: "start/restart vnc service"
+  tags:
+    - vncpasswd
+
+- name: chown vnc passwd file
+  file:
+    path: '{{ user_account_home }}/.vnc/passwd'
+    owner: '{{ user_account_owner }}'
+    group: '{{ user_account_group }}'
+    mode: 0600
+  notify: "start/restart vnc service"
+  tags:
+    - vncpasswd
+
+- name: template TigerVNC systemd
+  template:
+    src: vnc.service.j2
+    dest: /etc/systemd/system/vnc.service
+    owner: root
+    group: root
+    mode: 0644
+  notify: "start/restart vnc service"
+  when: ansible_service_mgr == "systemd"
+
+- name: reload systemd scripts
+  systemd:
+    daemon_reload: true
+  notify: "start/restart vnc service"
+  when:
+    - ansible_service_mgr == "systemd"
+
+
+# https://help.gnome.org/admin/system-admin-guide/stable/login-automatic.html.en
+- name: set up autologin for main user
+  ini_file:
+    path: "{{ gdm_config }}"
+    section: daemon
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: true
+    backup: true
+  notify: "restart display manager"
+  with_items:
+    - name: autologin enable
+      option: AutomaticLoginEnable
+      value: true
+    - name: autologin
+      option: AutomaticLogin
+      value: '{{ user_account_owner }}'
+    - name: disable Wayland
+      option: WaylandEnable
+      value: false
+  when: system_display_manager == "gdm"
