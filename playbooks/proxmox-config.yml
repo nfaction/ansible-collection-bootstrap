@@ -13,4 +13,4 @@
       tags: []
 
   roles:
-    - role: proxmox-config
+    - role: proxmox_config
