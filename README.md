@@ -2,6 +2,12 @@
 
 Documentation for the collection.
 
+## Using this Collections
+
+```shell
+ansible-galaxy collection install nfaction.bootstrap
+```
+
 ## Git Subtree
 
 **First time only**
