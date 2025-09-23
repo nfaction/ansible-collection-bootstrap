@@ -31,7 +31,7 @@
     #   tags:
     #     - docker
 
-    - role: geerlingguy.docker
+    - role: geerlingguy_docker
       docker_install_compose: true
       docker_users:
         - "{{ docker_user }}"
