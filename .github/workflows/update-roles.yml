@@ -1,0 +1,223 @@
+name: Update Ansible Roles
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2:00 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    # Allow manual triggering
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-roles:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Update internal roles
+      run: |
+        set -e
+        echo "Updating internal roles..."
+        
+        # Update ssh_config role
+        if git subtree pull --prefix=roles/ssh_config git@github.com:nfaction/ansible-ssh-config.git master --squash; then
+          echo "✓ Updated ssh_config role"
+        else
+          echo "⚠ Failed to update ssh_config role or no changes available"
+        fi
+        
+        # Update bootstrap role
+        if git subtree pull --prefix=roles/bootstrap git@github.com:nfaction/ansible-bootstrap.git master --squash; then
+          echo "✓ Updated bootstrap role"
+        else
+          echo "⚠ Failed to update bootstrap role or no changes available"
+        fi
+        
+        # Update ssh_port_probe role
+        if git subtree pull --prefix=roles/ssh_port_probe git@github.com:nfaction/ansible-ssh-port-probe.git master --squash; then
+          echo "✓ Updated ssh_port_probe role"
+        else
+          echo "⚠ Failed to update ssh_port_probe role or no changes available"
+        fi
+        
+        # Update x0_vnc role
+        if git subtree pull --prefix=roles/x0_vnc git@github.com:nfaction/ansible-x0-vnc.git master --squash; then
+          echo "✓ Updated x0_vnc role"
+        else
+          echo "⚠ Failed to update x0_vnc role or no changes available"
+        fi
+        
+        # Update ntp role
+        if git subtree pull --prefix=roles/ntp git@github.com:nfaction/ansible-ntp.git master --squash; then
+          echo "✓ Updated ntp role"
+        else
+          echo "⚠ Failed to update ntp role or no changes available"
+        fi
+        
+        # Update proxmox_config role
+        if git subtree pull --prefix=roles/proxmox_config git@github.com:nfaction/proxmox-config.git master --squash; then
+          echo "✓ Updated proxmox_config role"
+        else
+          echo "⚠ Failed to update proxmox_config role or no changes available"
+        fi
+
+    - name: Update external roles
+      run: |
+        set -e
+        echo "Updating external roles..."
+        
+        # Update docker role
+        if git subtree pull --prefix=roles/docker https://github.com/lean-delivery/ansible-role-docker.git master --squash; then
+          echo "✓ Updated docker role"
+        else
+          echo "⚠ Failed to update docker role or no changes available"
+        fi
+        
+        # Update geerlingguy.docker role
+        if git subtree pull --prefix=roles/geerlingguy.docker https://github.com/geerlingguy/ansible-role-docker.git master --squash; then
+          echo "✓ Updated geerlingguy.docker role"
+        else
+          echo "⚠ Failed to update geerlingguy.docker role or no changes available"
+        fi
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install Ansible
+      run: |
+        pip install ansible-core
+
+    - name: Check for changes and prepare version
+      id: check_changes
+      run: |
+        if git diff --quiet HEAD~1 HEAD; then
+          echo "changes=false" >> $GITHUB_OUTPUT
+          echo "No changes detected"
+        else
+          echo "changes=true" >> $GITHUB_OUTPUT
+          echo "Changes detected"
+          
+          # Extract current version and increment patch version
+          current_version=$(grep "^version:" galaxy.yml | sed 's/version: //')
+          echo "Current version: $current_version"
+          
+          # Split version into parts
+          IFS='.' read -r major minor patch <<< "$current_version"
+          new_patch=$((patch + 1))
+          new_version="$major.$minor.$new_patch"
+          
+          echo "New version: $new_version"
+          echo "new_version=$new_version" >> $GITHUB_OUTPUT
+          
+          # Update version in galaxy.yml
+          sed -i "s/^version:.*/version: $new_version/" galaxy.yml
+          
+          # Commit version bump
+          git add galaxy.yml
+          git commit -m "chore: bump version to $new_version"
+        fi
+
+    - name: Build collection
+      if: steps.check_changes.outputs.changes == 'true'
+      run: |
+        echo "Building Ansible collection..."
+        ansible-galaxy collection build
+        
+        # Get the built collection filename
+        collection_file=$(ls nfaction-bootstrap-*.tar.gz | head -1)
+        echo "Built collection: $collection_file"
+        echo "collection_file=$collection_file" >> $GITHUB_OUTPUT
+      id: build
+
+    - name: Publish to Ansible Galaxy
+      if: steps.check_changes.outputs.changes == 'true' && github.event_name != 'pull_request'
+      run: |
+        echo "Publishing collection to Ansible Galaxy..."
+        ansible-galaxy collection publish ${{ steps.build.outputs.collection_file }} --token ${{ secrets.ANSIBLE_GALAXY_API_TOKEN }}
+        echo "✓ Successfully published to Ansible Galaxy"
+
+    - name: Create Pull Request
+      if: steps.check_changes.outputs.changes == 'true'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "chore: update ansible roles via automated workflow"
+        title: "chore: update ansible roles"
+        body: |
+          ## Automated Role Updates and Release
+          
+          This PR contains updates to Ansible roles via git subtree pull operations, version bump, and collection build.
+          
+          ### Changes Made
+          
+          - **Version Update**: Bumped version to `${{ steps.check_changes.outputs.new_version }}`
+          - **Role Updates**: Updated all configured git subtrees
+          - **Collection Build**: Built and published new collection version to Ansible Galaxy
+          
+          ### Updated Roles
+          
+          The following roles have been checked for updates:
+          
+          **Internal Roles:**
+          - `roles/ssh_config` - SSH configuration management
+          - `roles/bootstrap` - System bootstrapping
+          - `roles/ssh_port_probe` - SSH port probing utility
+          - `roles/x0_vnc` - VNC server configuration
+          - `roles/ntp` - NTP service management
+          - `roles/proxmox_config` - Proxmox configuration management
+          
+          **External Roles:**
+          - `roles/docker` - Docker installation (lean-delivery)
+          - `roles/geerlingguy.docker` - Docker installation (geerlingguy)
+          
+          ### Installation
+          
+          The updated collection can be installed with:
+          ```bash
+          ansible-galaxy collection install nfaction.bootstrap:${{ steps.check_changes.outputs.new_version }}
+          ```
+          
+          ### Review Notes
+          
+          - Review the changes in each role directory for compatibility
+          - Test the updated roles in your environment before merging
+          - Check for any breaking changes in role interfaces
+          - Version has been automatically incremented (patch level)
+          
+          ---
+          *This PR was automatically created by GitHub Actions*
+        branch: automated-role-updates
+        delete-branch: true
+        draft: false
+
+    - name: Summary
+      run: |
+        echo "🎉 Role update workflow completed!"
+        echo "- ✅ Checked all configured git subtrees for updates"
+        if [ "${{ steps.check_changes.outputs.changes }}" == "true" ]; then
+          echo "- ✅ Bumped version to ${{ steps.check_changes.outputs.new_version }}"
+          echo "- ✅ Built collection: ${{ steps.build.outputs.collection_file }}"
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "- ✅ Published collection to Ansible Galaxy"
+          fi
+          echo "- ✅ Created pull request with all changes"
+          echo ""
+          echo "📦 Install with: ansible-galaxy collection install nfaction.bootstrap:${{ steps.check_changes.outputs.new_version }}"
+        else
+          echo "- ℹ️  No changes detected, no actions taken"
+        fi
