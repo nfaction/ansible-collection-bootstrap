@@ -22,10 +22,17 @@
         - bootstrap
         - first-boot
 
-    - role: docker
-      docker_version: "{{ global_docker_version }}"
-      docker_packages_additional:
-        - docker-compose
+    # - role: docker
+    #   docker_version: "{{ global_docker_version }}"
+    #   docker_packages_additional:
+    #     - docker-compose
+    #   docker_users:
+    #     - "{{ docker_user }}"
+    #   tags:
+    #     - docker
+
+    - role: geerlingguy.docker
+      docker_install_compose: true
       docker_users:
         - "{{ docker_user }}"
       tags:

@@ -24,6 +24,7 @@ git subtree add --prefix=roles/ntp git@github.com:nfaction/ansible-ntp.git maste
 git subtree add --prefix=roles/proxmox_config git@github.com:nfaction/proxmox-config.git master --squash
 # external
 git subtree add --prefix=roles/docker https://github.com/lean-delivery/ansible-role-docker.git master --squash
+git subtree add --prefix=roles/geerlingguy.docker https://github.com/geerlingguy/ansible-role-docker.git master --squash
 ```
 
 Updating subtrees
@@ -38,4 +39,5 @@ git subtree pull --prefix=roles/ntp git@github.com:nfaction/ansible-ntp.git mast
 git subtree pull --prefix=roles/proxmox_config git@github.com:nfaction/proxmox-config.git master --squash
 # external
 git subtree pull --prefix=roles/docker https://github.com/lean-delivery/ansible-role-docker.git master --squash
+git subtree pull --prefix=roles/geerlingguy.docker https://github.com/geerlingguy/ansible-role-docker.git master --squash
 ```
