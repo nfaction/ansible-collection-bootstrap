@@ -1,6 +1,6 @@
 ---
 - name: Converge
   hosts: all
-  vars: []
   roles:
     - role: ansible-ntp
+      ntp_sync_to_hardware_clock: false
