@@ -147,9 +147,22 @@ jobs:
     - name: Publish to Ansible Galaxy
       if: steps.check_changes.outputs.changes == 'true' && github.event_name != 'pull_request'
       run: |
-        echo "Publishing collection to Ansible Galaxy..."
-        ansible-galaxy collection publish ${{ steps.build.outputs.collection_file }} --token ${{ secrets.ANSIBLE_GALAXY_API_TOKEN }}
-        echo "✓ Successfully published to Ansible Galaxy"
+        if [ -z "${{ secrets.ANSIBLE_GALAXY_API_TOKEN }}" ]; then
+          echo "⚠️ ANSIBLE_GALAXY_API_TOKEN secret not set - skipping Galaxy publish"
+          echo "To enable publishing, add your Galaxy API token as a repository secret"
+          echo "collection_published=false" >> $GITHUB_OUTPUT
+        else
+          echo "Publishing collection to Ansible Galaxy..."
+          if ansible-galaxy collection publish ${{ steps.build.outputs.collection_file }} --token "${{ secrets.ANSIBLE_GALAXY_API_TOKEN }}"; then
+            echo "✓ Successfully published to Ansible Galaxy"
+            echo "collection_published=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Failed to publish to Ansible Galaxy"
+            echo "collection_published=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+        fi
+      id: publish
 
     - name: Create Pull Request
       if: steps.check_changes.outputs.changes == 'true'
@@ -213,11 +226,18 @@ jobs:
           echo "- ✅ Bumped version to ${{ steps.check_changes.outputs.new_version }}"
           echo "- ✅ Built collection: ${{ steps.build.outputs.collection_file }}"
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "- ✅ Published collection to Ansible Galaxy"
+            if [ "${{ steps.publish.outputs.collection_published }}" == "true" ]; then
+              echo "- ✅ Published collection to Ansible Galaxy"
+            elif [ "${{ steps.publish.outputs.collection_published }}" == "false" ]; then
+              echo "- ⚠️ Skipped Galaxy publish (API token not configured)"
+            fi
           fi
           echo "- ✅ Created pull request with all changes"
           echo ""
           echo "📦 Install with: ansible-galaxy collection install nfaction.bootstrap:${{ steps.check_changes.outputs.new_version }}"
+          if [ "${{ steps.publish.outputs.collection_published }}" != "true" ]; then
+            echo "💡 To enable auto-publishing, add ANSIBLE_GALAXY_API_TOKEN secret"
+          fi
         else
           echo "- ℹ️  No changes detected, no actions taken"
         fi
