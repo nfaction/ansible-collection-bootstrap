@@ -3,4 +3,5 @@
 ntp_packages:
   - python3-apt
   - ntp
+  - ntpdate
 ntp_service: ntp
