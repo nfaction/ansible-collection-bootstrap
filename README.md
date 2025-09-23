@@ -41,3 +41,17 @@ git subtree pull --prefix=roles/proxmox_config git@github.com:nfaction/proxmox-c
 git subtree pull --prefix=roles/docker https://github.com/lean-delivery/ansible-role-docker.git master --squash
 git subtree pull --prefix=roles/geerlingguy_docker https://github.com/geerlingguy/ansible-role-docker.git master --squash
 ```
+
+## Building the Collection
+
+```shell
+# Update version in galaxy.yml
+version: 1.0.0 # <major>.<minor>.<patch>
+
+# Build this collection
+ansible-galaxy collection build
+
+# Publish to Ansible Galaxy
+## ANSIBLE_GALAXY_API_TOKEN in GitHub 'Secrets and variables', 'Actions', 'Repository secrets'
+ansible-galaxy collection publish nfaction-bootstrap-1.0.0.tar.gz --token "$GALAXY_TOKEN"
+```
