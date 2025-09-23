@@ -33,42 +33,42 @@ jobs:
         echo "Updating internal roles..."
         
         # Update ssh_config role
-        if git subtree pull --prefix=roles/ssh_config git@github.com:nfaction/ansible-ssh-config.git master --squash; then
+        if git subtree pull --prefix=roles/ssh_config https://github.com/nfaction/ansible-ssh-config.git master --squash; then
           echo "✓ Updated ssh_config role"
         else
           echo "⚠ Failed to update ssh_config role or no changes available"
         fi
         
         # Update bootstrap role
-        if git subtree pull --prefix=roles/bootstrap git@github.com:nfaction/ansible-bootstrap.git master --squash; then
+        if git subtree pull --prefix=roles/bootstrap https://github.com/nfaction/ansible-bootstrap.git master --squash; then
           echo "✓ Updated bootstrap role"
         else
           echo "⚠ Failed to update bootstrap role or no changes available"
         fi
         
         # Update ssh_port_probe role
-        if git subtree pull --prefix=roles/ssh_port_probe git@github.com:nfaction/ansible-ssh-port-probe.git master --squash; then
+        if git subtree pull --prefix=roles/ssh_port_probe https://github.com/nfaction/ansible-ssh-port-probe.git master --squash; then
           echo "✓ Updated ssh_port_probe role"
         else
           echo "⚠ Failed to update ssh_port_probe role or no changes available"
         fi
         
         # Update x0_vnc role
-        if git subtree pull --prefix=roles/x0_vnc git@github.com:nfaction/ansible-x0-vnc.git master --squash; then
+        if git subtree pull --prefix=roles/x0_vnc https://github.com/nfaction/ansible-x0-vnc.git master --squash; then
           echo "✓ Updated x0_vnc role"
         else
           echo "⚠ Failed to update x0_vnc role or no changes available"
         fi
         
         # Update ntp role
-        if git subtree pull --prefix=roles/ntp git@github.com:nfaction/ansible-ntp.git master --squash; then
+        if git subtree pull --prefix=roles/ntp https://github.com/nfaction/ansible-ntp.git master --squash; then
           echo "✓ Updated ntp role"
         else
           echo "⚠ Failed to update ntp role or no changes available"
         fi
         
         # Update proxmox_config role
-        if git subtree pull --prefix=roles/proxmox_config git@github.com:nfaction/proxmox-config.git master --squash; then
+        if git subtree pull --prefix=roles/proxmox_config https://github.com/nfaction/proxmox-config.git master --squash; then
           echo "✓ Updated proxmox_config role"
         else
           echo "⚠ Failed to update proxmox_config role or no changes available"
