@@ -11,6 +11,7 @@
   delegate_to: localhost
   register: custom_ssh
   ignore_errors: true
+  when: not (skip_ssh_probe | default(false) | bool)
 
 - name: test default ssh port
   wait_for:
@@ -21,22 +22,26 @@
   delegate_to: localhost
   register: default_ssh
   ignore_errors: true
+  when: not (skip_ssh_probe | default(false) | bool)
 
 - name: "set ansible_ssh_port to {{ modified_ssh_port | default('') }}"
   set_fact:
     ansible_ssh_port: "{{ modified_ssh_port | default('') }}"
     ansible_port: "{{ modified_ssh_port | default('') }}"
   when:
+    - not (skip_ssh_probe | default(false) | bool)
     - custom_ssh is defined
     - modified_ssh_port != ""
-    - custom_ssh.elapsed < wait_for_ssh_timeout
+    - custom_ssh.elapsed < (wait_for_ssh_timeout | int)
 
 - name: set ansible_ssh_port to default
   set_fact:
     ansible_ssh_port: 22
     ansible_port: 22
   when:
-    - default_ssh.elapsed < wait_for_ssh_timeout
+    - not (skip_ssh_probe | default(false) | bool)
+    - default_ssh.elapsed < (wait_for_ssh_timeout | int)
+    - custom_ssh is not defined or custom_ssh.failed or custom_ssh.elapsed >= (wait_for_ssh_timeout | int)
 
 ###############################
 # Pre-configure OS for Python #
@@ -50,6 +55,7 @@
   set_fact:
     bootstrap_python: true
   when:
+    - not (skip_ssh_probe | default(false) | bool)
     - manual_os_version.stdout in os_without_python_preinstalled
   delegate_to: localhost
   tags:
@@ -67,10 +73,11 @@
   raw: "{{ python_install_cmd }}"
   changed_when: false
   when:
+    - not (skip_ssh_probe | default(false) | bool)
     - bootstrap_python | bool
-    - manual_os_version.stdout | regex_search('Debian')
+    - manual_os_version.stdout | regex_search('Debian') is not none
     - manual_os_version.stdout in os_without_python_preinstalled
-    - not python_installed.stdout | regex_search('Python')
+    - python_installed.stdout | regex_search('Python') is none
   tags:
     - bootstrap-python
 
@@ -88,9 +95,10 @@
   changed_when: false
   failed_when: false
   when:
+    - not (skip_ssh_probe | default(false) | bool)
     - bootstrap_python | bool
     - set_python_alterative | bool
-    - not python_installed.stdout | regex_search('Python')
+    - python_installed.stdout | regex_search('Python') is none
 
 - name: make python default alternative
   alternatives:
@@ -99,9 +107,11 @@
     path: "{{ installed_python_version_path.stdout }}"
     priority: 1
   when:
+    - not (skip_ssh_probe | default(false) | bool)
     - bootstrap_python | bool
     - set_python_alterative | bool
-    - not python_installed.stdout | regex_search('Python')
+    - python_installed.stdout | regex_search('Python') is none
+  ignore_errors: true
 
 # Manual version
 #- name: set default python
@@ -115,10 +125,39 @@
 #######################
 - name: try to ansible ping the host before moving on
   ping:
+  when: not (skip_ssh_probe | default(false) | bool)
 
 ####################
 # Install SSH Keys #
 ####################
+- name: ensure ssh key user home directories exist
+  file:
+    path: "{{ '~' + item.user if item.user != 'root' else '/root' }}"
+    state: directory
+    owner: "{{ item.user }}"
+    group: "{{ item.user }}"
+    mode: '0755'
+  become: "{{ ssh_key_sudo | default(true) }}"
+  with_items:
+    - "{{ ssh_keys | default([]) }}"
+  when:
+    - configure_ssh_keys | bool
+    - item.key | default('') != ''
+
+- name: ensure .ssh directories exist with proper permissions
+  file:
+    path: "{{ ('~' + item.user if item.user != 'root' else '/root') + '/.ssh' }}"
+    state: directory
+    owner: "{{ item.user }}"
+    group: "{{ item.user }}"
+    mode: '0700'
+  become: "{{ ssh_key_sudo | default(true) }}"
+  with_items:
+    - "{{ ssh_keys | default([]) }}"
+  when:
+    - configure_ssh_keys | bool
+    - item.key | default('') != ''
+
 - name: install ssh key(s)
   authorized_key:
     user: "{{ item.user }}"
@@ -128,11 +167,12 @@
     comment: "{{ item.comment | default(omit) }}"
     follow: "{{ item.follow | default(omit) }}"
     exclusive: "{{ item.exclusive | default(omit) }}"
-    manage_dir: "{{ item.manage_dir | default(omit) }}"
+    manage_dir: "{{ item.manage_dir | default(true) }}"
     path: "{{ item.path | default(omit) }}"
     validate_certs: "{{ item.validate_certs | default(omit) }}"
-  become: "{{ ssh_key_sudo | default(false) }}"
+  become: "{{ ssh_key_sudo | default(true) }}"
   with_items:
     - "{{ ssh_keys | default([]) }}"
   when:
     - configure_ssh_keys | bool
+    - item.key | default('') != ''
