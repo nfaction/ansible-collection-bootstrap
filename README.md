@@ -4,6 +4,8 @@ Documentation for the collection.
 
 ## Using this Collections
 
+* https://galaxy.ansible.com/ui/repo/published/nfaction/bootstrap/
+
 ```shell
 ansible-galaxy collection install nfaction.bootstrap
 ```
