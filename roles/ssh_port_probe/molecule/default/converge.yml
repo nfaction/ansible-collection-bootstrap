@@ -5,5 +5,7 @@
   vars:
     configure_ssh_keys: false
     ssh_keys: []
+    # Skip SSH port probing in container testing
+    skip_ssh_probe: true
   roles:
     - role: ansible-ssh-port-probe

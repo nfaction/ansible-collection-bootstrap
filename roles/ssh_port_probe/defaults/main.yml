@@ -11,6 +11,9 @@ modified_ssh_port: 314
 
 wait_for_ssh_timeout: 5
 
+# Skip SSH port probing (useful for container testing)
+skip_ssh_probe: false
+
 ##############################
 # Bootstrap host with Python #
 ##############################
@@ -32,6 +35,7 @@ alternative_python_path: "/usr/bin/python3"
 # SSH Keys #
 ############
 configure_ssh_keys: true
+ssh_key_sudo: true
 
 ssh_pub_key: "id_rsa.pub"
 
