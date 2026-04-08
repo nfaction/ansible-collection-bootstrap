@@ -4,6 +4,7 @@
   gather_facts: false
   vars:
     dl_packages_locally: true
+    force_bootstrap: true
     # os_vars_dir: ../../../../group_vars/operating-systems
   roles:
     - role: ansible-bootstrap
