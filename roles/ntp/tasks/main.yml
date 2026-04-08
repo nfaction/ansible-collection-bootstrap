@@ -27,7 +27,7 @@
 
 - name: verify that ntp is installed
   stat:
-    path: /etc/ntp.conf
+    path: "{{ ntp_config }}"
   register: ntp_installed
 
 - name: catch up hardware time with ntp
@@ -36,7 +36,7 @@
   changed_when: false
 
 - name: update system date manually
-  shell: ntpdate 1.us.pool.ntp.org
+  shell: ntpdate {{ manual_ntp_server | default('1.pool.ntp.org') }}
   when:
     - not ntp_installed.stat.exists | bool
 
