@@ -1,0 +1,94 @@
+---
+#
+# Usage: (Must run as root!)
+#
+#   ansible-playbook -i hosts -vvv playbooks/manage-users.yml --limit <target-host>
+#
+- name: manage users
+  hosts: all
+  gather_facts: false
+  vars:
+    configure_ssh_keys: true
+    use_become: true
+  tasks:
+    - name: delete cloud_init user
+      user:
+        name: "{{ cloud_user | default('debian') }}"
+        state: absent
+        remove: true
+      tags:
+        - delete
+
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/group_module.html#ansible-collections-ansible-builtin-group-module
+    - name: create local groups
+      group:
+        name: '{{ item.group }}'
+        gid: '{{ item.gid | default(omit) }}'
+        system: '{{ item.system | default(omit) }}'
+        state: '{{ item.state | default(omit) }}'
+        local: '{{ item.local | default(omit) }}'
+      with_items:
+        - '{{ user_accounts | default([]) }}'
+      tags:
+        - add
+
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/user_module.html
+    # https://docs.ansible.com/ansible/latest/reference_appendices/faq.html#how-do-i-generate-encrypted-passwords-for-the-user-module
+    - name: add local users
+      user:
+        name: '{{ item.username }}'
+        password: '{{ item.password | default(omit) }}'
+        update_password: '{{ item.update_password | default("on_create") }}'
+        uid: '{{ item.uid | default(omit) }}'
+        group: '{{ item.group | default(omit) }}'
+        groups: '{{ item.groups | default(omit) }}'
+        append: '{{ item.append | default(omit) }}'
+        system: '{{ item.system | default(omit) }}'
+        home: '{{ item.home | default(omit) }}'
+        shell: '{{ item.shell | default("/bin/bash") }}'
+        generate_ssh_key: '{{ item.generate_ssh_key | default(omit) }}'
+        ssh_key_type: '{{ item.ed25519 | default(omit) }}'
+        state: '{{ item.state | default(omit) }}'
+      with_items:
+        - '{{ user_accounts | default([]) }}'
+      tags:
+        - add
+
+    # https://docs.ansible.com/ansible/latest/collections/ansible/builtin/lineinfile_module.html
+    - name: configure NOPASSWD in sudoers
+      lineinfile:
+        path: /etc/sudoers
+        state: present
+        regexp: '^{{ item.username }} ALL='
+        line: '{{ item.username }} ALL=(ALL) NOPASSWD:ALL'
+        validate: /usr/sbin/visudo -cf %s
+      with_items:
+        - '{{ user_accounts | default([]) }}'
+      when:
+        - item.sudo_nopasswd is defined
+        - item.sudo_nopasswd | bool
+      tags:
+        - sudoers
+
+    - name: install ssh key(s)
+      authorized_key:
+        user: "{{ item.0.username }}"
+        key: "{{ item.1.key }}"
+        key_options: "{{ item.1.key_options | default(omit) }}"
+        state: "{{ item.1.state | default('present') }}"
+        comment: "{{ item.1.comment | default(omit) }}"
+        follow: "{{ item.1.follow | default(omit) }}"
+        exclusive: "{{ item.1.exclusive | default(omit) }}"
+        manage_dir: "{{ item.1.manage_dir | default(omit) }}"
+        path: "{{ item.1.path | default(omit) }}"
+        validate_certs: "{{ item.1.validate_certs | default(omit) }}"
+      # become: '{{ use_become }}'
+      # become_method: su
+      # become_user: "{{ item.0.username | default(false) }}"
+      with_nested:
+        - "{{ user_accounts | default([]) }}"
+        - "{{ ssh_keys | default([]) }}"
+      when:
+        - configure_ssh_keys | bool
+      tags:
+        - ssh-keys

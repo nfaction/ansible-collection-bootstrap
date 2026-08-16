@@ -1,0 +1,62 @@
+---
+# ansible-galaxy collection install -r galaxy-requirements.yml
+# ansible-playbook playbooks/configure-db-aio.yml --limit localhost:databases
+
+######################
+# Boostrap SSH/Users #
+######################
+- name: configure ssh
+  hosts: databases
+  gather_facts: false
+  tags:
+    - ssh-bootstrap
+  pre_tasks:
+    - name: set playbook dir to root of this repository
+      set_fact:
+        ansible_root_dir: "{{ playbook_dir | regex_replace('/playbooks', '') }}"
+  roles:
+    # Configure SSH
+    - role: ssh_port_probe
+    - role: ssh_config
+    - role: ssh_port_probe
+
+- name: master playbook to install and configure a physical server
+  import_playbook: manage-users.yml
+  vars:
+    cloud_user: 'debian'
+
+###########################
+# Bootstrap Database Host #
+###########################
+- name: Configure AIO Database
+  hosts: databases
+  roles:
+    - role: bootstrap
+      vars:
+        force_bootstrap: true
+      tags:
+        - bootstrap
+
+    # Configure System
+    - role: ntp
+      tags:
+        - system
+        - first-boot
+
+    - role: disks
+      tags:
+        - system
+        - disks
+
+    - role: geerlingguy_docker
+      docker_version: "{{ global_docker_version | default(omit) }}"
+      docker_install_compose: true
+      docker_users:
+        - "{{ db_aio_docker_user | default('debian') }}"
+      tags:
+        - docker
+
+    - role: systemd_docker
+      tags:
+        - systemd-docker
+        - docker
