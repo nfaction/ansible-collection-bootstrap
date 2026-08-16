@@ -1,0 +1,9 @@
+---
+- name: Converge
+  hosts: all
+  vars:
+    systemd_container_path: /lib/systemd/system
+    systemd_docker_perform_restarts: false
+    pip_executable: /usr/bin/pip3
+  roles:
+    - role: ansible-systemd-docker
