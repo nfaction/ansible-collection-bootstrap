@@ -1,0 +1,20 @@
+---
+- name: master playbook to install docker
+  hosts: all
+  gather_facts: true
+  vars:
+    docker_user: "debian"
+  pre_tasks:
+    - name: set playbook dir to root of this repository
+      set_fact:
+        ansible_root_dir: "{{ playbook_dir | regex_replace('/playbooks', '') }}"
+      tags:
+        - docker
+
+  roles:
+    - role: geerlingguy_docker
+      docker_install_compose: true
+      docker_users:
+        - "{{ docker_user }}"
+      tags:
+        - docker

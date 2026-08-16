@@ -4,12 +4,15 @@
   hosts: all
   vars:
     roles_dir: roles
+    config_nested_virtualization: true
+    upgrade_proxmox_os_packages: true
+    pci_trigger_update_refresh: true
   pre_tasks:
     # Workaround to run playbook inside this role.
     - name: set playbook dir when running this playbook here
       set_fact:
-        ansible_root_dir: "{{ playbook_dir | regex_replace('/{{ roles_dir }}/proxmox-config', '') }}"
-      when: "'/{{ roles_dir }}/proxmox-config' in playbook_dir"
+        ansible_root_dir: "{{ playbook_dir | regex_replace('/{{ roles_dir }}/proxmox_config', '') }}"
+      when: "'/{{ roles_dir }}/proxmox_config' in playbook_dir"
       tags: []
 
   roles:

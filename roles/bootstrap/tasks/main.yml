@@ -54,23 +54,24 @@
     - name: install python and deps for ansible modules for Fedora
       raw: sudo dnf install -y {{ dnf_packages_to_preinstall | join(' ') }}
       when: manual_os_distribution.stdout.find('Fedora') != -1
-      become: yes
+      become: true
       tags:
         - preconfigure-ansible
         - fedora-prep
 
     - name: install python and deps for ansible modules Debian systems
-      raw: sudo apt install -y {{ apt_packages_to_preinstall | join(' ') }}
+      raw: sudo apt update && sudo apt install -y {{ apt_packages_to_preinstall | join(' ') }}
       when:
         - manual_os_distribution.stdout.find('Debian') != -1 or
             manual_os_distribution.stdout.find('Ubuntu') != -1
-      become: yes
+      become: true
+      changed_when: false
       tags:
         - preconfigure-ansible
         - apt-prep
 
     - name: install homebrew for ansible modules
-      command: /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+      command: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       when:
         - is_osx.stdout.find('Darwin') != -1
         - homebrew_present is defined
@@ -257,7 +258,7 @@
   easy_install:
     name: pip
     state: present
-  become: yes
+  become: true
   when: ansible_os_family != "Debian"
 
 - name: install pip packages for OSX
@@ -280,6 +281,7 @@
     name: "{{ item }}"
     state: present
     executable: "{{ pip_executable | default(omit) }}"
+    break_system_packages: "{{ pip_break_system_packages | default(omit) }}"
   with_items:
     - "{{ pip_packages_to_install | default([]) }}"
     - "{{ extra_pip_packages_to_install | default([]) }}"

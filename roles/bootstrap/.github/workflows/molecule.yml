@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Check out the codebase.
         uses: actions/checkout@v2
+        with:
+          path: 'ansible-bootstrap'
 
       - name: Set up Python 3.
         uses: actions/setup-python@v2
@@ -24,10 +26,11 @@ jobs:
 
       - name: Install test dependencies.
         run: pip3 install yamllint
+        working-directory: ansible-bootstrap
 
       - name: Lint code.
-        run: |
-          yamllint .
+        run: yamllint .
+        working-directory: ansible-bootstrap
 
   molecule:
     name: Molecule
@@ -35,25 +38,40 @@ jobs:
     strategy:
       matrix:
         distro:
-          - debian10
-          - debian11
-          - centos7
-          - ubuntu2004
+          - debian12
+          - debian13
+          # - centos7
+          - ubuntu2404
 
     steps:
       - name: Check out the codebase.
         uses: actions/checkout@v2
+        with:
+          path: 'ansible-bootstrap'
 
       - name: Set up Python 3.
         uses: actions/setup-python@v2
         with:
           python-version: '3.x'
 
+      - name: Set up Docker
+        run: |
+          sudo systemctl start docker
+          sudo systemctl status docker
+
       - name: Install test dependencies.
-        run: pip3 install ansible molecule[docker] docker
+        run: pip3 install ansible molecule molecule-plugins[docker] docker
+        working-directory: ansible-bootstrap
+
+      - name: Create role symlink for Molecule
+        run: |
+          mkdir -p molecule/default/roles
+          ln -s ../../.. molecule/default/roles/ansible-bootstrap
+        working-directory: ansible-bootstrap
 
       - name: Run Molecule tests.
         run: molecule test
+        working-directory: ansible-bootstrap
         env:
           PY_COLORS: '1'
           ANSIBLE_FORCE_COLOR: '1'
